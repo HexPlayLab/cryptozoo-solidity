@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: None
 pragma solidity >=0.6.0;
 
+
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 
-contract CryptoZoo is ERC721 {
+contract CryptoZoo is ERC721, Ownable {
     using SafeMath for uint256;
     
-    address private _owner;
     uint256 private tokenIndex;
     uint256 public eggPrice;
     
@@ -29,13 +30,7 @@ contract CryptoZoo is ERC721 {
 
     constructor() public ERC721("CryptoZoo", "CZ") {
         tokenIndex = 1;
-        eggPrice = 1e15;
-        _owner = msg.sender;
-    }
-
-    modifier onlyOwner() {
-        require(_owner == msg.sender, "");
-        _;
+        eggPrice = 1e16;
     }
     
     function setEggPrice(uint256 _price) public onlyOwner {
@@ -56,12 +51,12 @@ contract CryptoZoo is ERC721 {
     
     // 创建
     function create() public payable {
-        require(msg.value == eggPrice, "");
+        require(msg.value == eggPrice, "Error: invalid price");
         _feeToPool(msg.value);
 
         _safeMint(msg.sender, tokenIndex);
         
-        uint8 _type = _random();
+        uint8 _type = _randomAnimal(msg.sender);
         animalsType[tokenIndex] = _type;
         animalsLevel[tokenIndex] = 1;
 
@@ -70,11 +65,11 @@ contract CryptoZoo is ERC721 {
 
     // 升级
     function upgrade(uint256 _token1, uint256 _token2) public {
-        require(ownerOf(_token1) == msg.sender && ownerOf(_token2) == msg.sender, "");
+        require(ownerOf(_token1) == msg.sender && ownerOf(_token2) == msg.sender, "Error: no right");
         
-        require(animalsType[_token1] == animalsType[_token2], "");
-        require(animalsLevel[_token1] == animalsLevel[_token2] && animalsLevel[_token1] < 5, "");
-        require(animalPrice[_token1] == 0 && animalPrice[_token2] == 0, "");
+        require(animalsType[_token1] == animalsType[_token2], "Error: different animals");
+        require(animalsLevel[_token1] == animalsLevel[_token2] && animalsLevel[_token1] < 5, "Error: different levels");
+        require(animalPrice[_token1] == 0 && animalPrice[_token2] == 0, "Error: in sell");
 
         _burn(_token1);
         _burn(_token2);
@@ -88,10 +83,10 @@ contract CryptoZoo is ERC721 {
     
     // 给系统赎回
     function redeem(uint256 _tokenID) public {
-        require(ownerOf(_tokenID) == msg.sender, "");
+        require(ownerOf(_tokenID) == msg.sender, "Error: no right");
 
-        require(animalPrice[_tokenID] == 0, "");
-        require(animalsLevel[_tokenID] >= 3, "");
+        require(animalPrice[_tokenID] == 0, "Error: in sell");
+        require(animalsLevel[_tokenID] >= 3, "Error: invalid level");
 
         uint8 _type = animalsType[_tokenID];
         uint8 _level = animalsLevel[_tokenID];
@@ -103,8 +98,8 @@ contract CryptoZoo is ERC721 {
 
     // 挂价出售
     function sell(uint256 _tokenID, uint256 _price) public {
-        require(ownerOf(_tokenID) == msg.sender, "");
-        require(animalsLevel[_tokenID] >= 2, "");
+        require(ownerOf(_tokenID) == msg.sender, "Error: no right");
+        require(animalsLevel[_tokenID] >= 2, "Error: invalid level");
 
         animalPrice[_tokenID] = _price;
         market[animalsLevel[_tokenID]][animalsType[_tokenID]].push(_tokenID);
@@ -112,13 +107,23 @@ contract CryptoZoo is ERC721 {
 
     // 购买
     function buy(uint256 _tokenID) public payable {
-        require(ownerOf(_tokenID) != msg.sender, "");
-        require(animalPrice[_tokenID] == msg.value, "");
+        require(ownerOf(_tokenID) != msg.sender, "Error: no right");
+        require(msg.value > 0 && animalPrice[_tokenID] == msg.value, "Error: invalid price");
         safeTransferFrom(ownerOf(_tokenID), msg.sender, _tokenID);
     }
 
-    function _random() internal returns (uint8) {
-        return 1;
+    // 查询动物信息
+    function getAnimalInfo(uint256 _tokenID) public view returns (uint8 _type, uint8 _level, uint256 _price) {
+        _type = animalsType[_tokenID];
+        _level = animalsLevel[_tokenID];
+        _price = animalPrice[_tokenID];
+    }
+
+    function _randomAnimal(address _user) internal view returns (uint8) {
+        require(_user != block.coinbase);
+        return uint8(
+            uint256(keccak256(abi.encodePacked(_user, block.difficulty, block.timestamp))) % 12
+        ) + 1;
     }
 
     function _feeToPool(uint256 _fee) internal {
