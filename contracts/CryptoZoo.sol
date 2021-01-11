@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: None
 pragma solidity >=0.6.0;
 
-
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-
 
 contract CryptoZoo is ERC721, Ownable {
     using SafeMath for uint256;
@@ -120,7 +117,7 @@ contract CryptoZoo is ERC721, Ownable {
     }
 
     function _randomAnimal(address _user) internal view returns (uint8) {
-        require(_user != block.coinbase);
+        require(_user != block.coinbase, "Error: minner forbidden");
         return uint8(
             uint256(keccak256(abi.encodePacked(_user, block.difficulty, block.timestamp))) % 12
         ) + 1;
