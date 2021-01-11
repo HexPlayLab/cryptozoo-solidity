@@ -11,9 +11,9 @@ contract CryptoZoo is ERC721, Ownable {
     uint256 public eggPrice;
     
     //一个动物需要有的属性
-    mapping (uint256 => uint8) private animalsType;
-    mapping (uint256 => uint8) private animalsLevel;
-    mapping (uint256 => uint256) private animalPrice;
+    mapping (uint256 => uint8) public animalsType;
+    mapping (uint256 => uint8) public animalsLevel;
+    mapping (uint256 => uint256) public animalPrice;
 
     // 奖金池 level => bonus
     mapping (uint8 => uint256) public bonusPool;
@@ -119,7 +119,7 @@ contract CryptoZoo is ERC721, Ownable {
     function _randomAnimal(address _user) internal view returns (uint8) {
         require(_user != block.coinbase, "Error: minner forbidden");
         return uint8(
-            uint256(keccak256(abi.encodePacked(_user, block.difficulty, block.timestamp))) % 12
+            uint256(keccak256(abi.encodePacked(_user, tokenIndex, block.difficulty))) % 12
         ) + 1;
     }
 
